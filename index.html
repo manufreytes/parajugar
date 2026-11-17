@@ -73,9 +73,34 @@
     #again { text-align: center; background: #facc15; color: #0f172a; font-weight: 700; border-color: #facc15; }
     #explain { color: #cbd5e1; font-size: .92rem; }
     #hint { font-size: .8rem; color: #64748b; }
+    #intro {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      background: #000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      cursor: pointer;
+      transition: opacity .6s;
+    }
+    #intro.out { opacity: 0; pointer-events: none; }
+    #intro h2 {
+      margin: 0;
+      color: #fff;
+      font-size: clamp(2rem, 9vw, 6rem);
+      font-weight: 800;
+      text-align: center;
+      padding: 0 1rem;
+      text-shadow: 3px 3px 0 #fe2c55, -3px -3px 0 #25f4ee;
+    }
+    #intro small { color: #64748b; }
   </style>
 </head>
 <body>
+  <div id="intro"><h2>malísimo el tiktok</h2><small>tocá para jugar</small></div>
   <h1>Snake <span>+ Cálculo Numérico</span> 🐍</h1>
   <div id="hud">
     <div>Puntos: <b id="score">0</b></div>
@@ -358,6 +383,17 @@ canvas.addEventListener("touchend", e => {
   if (Math.abs(dx) > Math.abs(dy)) setDir(dx > 0 ? 1 : -1, 0);
   else setDir(0, dy > 0 ? 1 : -1);
 });
+
+function closeIntro() {
+  const el = $("intro");
+  if (!el) return;
+  el.classList.add("out");
+  setTimeout(() => el.remove(), 700);
+  document.removeEventListener("keydown", closeIntro);
+}
+$("intro").addEventListener("click", closeIntro);
+document.addEventListener("keydown", closeIntro);
+setTimeout(closeIntro, 3000);
 
 reset();
 draw();
