@@ -2,28 +2,365 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>malísimo el tiktok</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>Snake + Cálculo Numérico</title>
   <style>
-    html, body { height: 100%; margin: 0; }
+    * { box-sizing: border-box; }
     body {
+      margin: 0;
+      min-height: 100vh;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
-      background: #000;
-      color: #fff;
+      gap: 12px;
+      background: #0f172a;
+      color: #e2e8f0;
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
     }
-    h1 {
-      font-size: clamp(2rem, 9vw, 6rem);
-      font-weight: 800;
-      text-align: center;
-      padding: 0 1rem;
-      text-shadow: 3px 3px 0 #fe2c55, -3px -3px 0 #25f4ee;
+    h1 { margin: 0; font-size: 1.5rem; }
+    h1 span { color: #facc15; }
+    #hud { display: flex; gap: 20px; font-size: .95rem; color: #94a3b8; }
+    #hud b { color: #e2e8f0; }
+    #wrap { position: relative; width: min(92vw, 420px); }
+    canvas {
+      width: 100%;
+      aspect-ratio: 1;
+      display: block;
+      background: #1e293b;
+      border: 3px solid #334155;
+      border-radius: 10px;
+      touch-action: none;
     }
+    #overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(15, 23, 42, .94);
+      border-radius: 10px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 10px;
+      overflow-y: auto;
+    }
+    #overlay.hidden { display: none; }
+    #overlay h2 { margin: 0; font-size: 1.2rem; color: #f87171; }
+    #overlay h2.ok { color: #4ade80; }
+    #overlay p { margin: 0; line-height: 1.4; }
+    #question { font-weight: 600; font-size: 1.02rem; }
+    code {
+      background: #334155;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+    }
+    .opt, #again {
+      font: inherit;
+      text-align: left;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 2px solid #475569;
+      background: #1e293b;
+      color: #e2e8f0;
+      cursor: pointer;
+    }
+    .opt:hover:not(:disabled), #again:hover { border-color: #facc15; }
+    .opt.right { border-color: #4ade80; background: #14532d; }
+    .opt.wrong { border-color: #f87171; background: #7f1d1d; }
+    #again { text-align: center; background: #facc15; color: #0f172a; font-weight: 700; border-color: #facc15; }
+    #explain { color: #cbd5e1; font-size: .92rem; }
+    #hint { font-size: .8rem; color: #64748b; }
   </style>
 </head>
 <body>
-  <h1>malísimo el tiktok</h1>
+  <h1>Snake <span>+ Cálculo Numérico</span> 🐍</h1>
+  <div id="hud">
+    <div>Puntos: <b id="score">0</b></div>
+    <div>Récord: <b id="best">0</b></div>
+    <div>Respuestas: <b id="stats">0/0</b></div>
+  </div>
+
+  <div id="wrap">
+    <canvas id="c" width="400" height="400"></canvas>
+    <div id="overlay">
+      <h2 id="title">Snake + Cálculo Numérico</h2>
+      <p id="msg">Comé las manzanas. Cada vez que pierdas vas a tener que contestar una pregunta de Computación y Cálculo Numérico.</p>
+      <p id="question"></p>
+      <div id="options"></div>
+      <p id="explain"></p>
+      <button id="again">Jugar</button>
+    </div>
+  </div>
+  <div id="hint">Flechas o WASD para moverte · en el celular, deslizá el dedo</div>
+
+<script>
+const Q = (u, q, o, e) => ({ u, q, o, a: 0, e });
+const UNITS = {
+  1: "Unidad 1 · Computación científica",
+  2: "Unidad 2 · Programación estructurada",
+  3: "Unidad 3 · Entrada/salida y gráficos",
+  4: "Unidad 4 · Errores numéricos",
+  5: "Unidad 5 · Ecuaciones y sistemas",
+  6: "Unidad 6 · Interpolación y regresión",
+  7: "Unidad 7 · Derivación e integración",
+  8: "Unidad 8 · Ecuaciones diferenciales",
+  9: "Unidad 9 · Modelado"
+};
+const QUESTIONS = [
+  // Unidad 1
+  Q(1, `¿De qué tipo es el valor <code>3.0</code> en Python?`, ["float", "int", "str", "bool"], "Tiene punto decimal, así que es float aunque su valor sea entero."),
+  Q(1, `¿Qué comando instala el paquete NumPy?`, ["pip install numpy", "import numpy", "python numpy", "install numpy.py"], "pip es el gestor de paquetes; import solo carga uno ya instalado."),
+  Q(1, `¿Cuánto vale <code>not (True and False)</code>?`, ["True", "False", "None", "Error"], "True and False da False, y not False da True."),
+  Q(1, `Después de <code>x = 5</code> y <code>x += 2</code>, ¿cuánto vale x?`, ["7", "5", "2", "52"], "x += 2 equivale a x = x + 2."),
+  Q(1, `¿Qué devuelve <code>"ingenieria"[0:3]</code>?`, ["\"ing\"", "\"inge\"", "\"ge\"", "\"ia\""], "El slice [0:3] toma los índices 0, 1 y 2."),
+  Q(1, `¿Qué da <code>[1, 2, 3] * 2</code> si es una lista común?`, ["[1, 2, 3, 1, 2, 3]", "[2, 4, 6]", "[1, 2, 3, 2]", "Error"], "En listas, * repite. En un array de NumPy daría [2, 4, 6]."),
+  Q(1, `¿Qué ventaja tiene un array de NumPy frente a una lista?`, ["Elementos del mismo tipo y operaciones vectorizadas", "Puede mezclar tipos libremente", "Es mutable y la lista no", "Ocupa siempre más memoria"], "Al ser homogéneo y vectorizado, es mucho más eficiente para cálculo numérico."),
+  Q(1, `¿Cuánto vale <code>3 == 3.0</code>?`, ["True", "False", "None", "Error"], "== compara valores, no tipos; 3 y 3.0 son iguales."),
+
+  // Unidad 2
+  Q(2, `Si <code>f = lambda x: x**2</code>, ¿cuánto vale <code>f(4)</code>?`, ["16", "8", "6", "24"], "Una lambda es una función anónima de una línea: aquí eleva al cuadrado."),
+  Q(2, `¿Qué imprime <code>for i in range(1, 4): print(i)</code>?`, ["1 2 3", "1 2 3 4", "0 1 2 3", "0 1 2"], "range(1, 4) empieza en 1 y excluye el 4."),
+  Q(2, `¿Cómo se llama la forma compacta <code>a if cond else b</code>?`, ["Operador ternario (if-else en una línea)", "Función lambda", "List comprehension", "Ciclo for compacto"], "Evalúa cond y devuelve a o b según sea verdadera o falsa."),
+  Q(2, `Un ciclo <code>while</code> se repite...`, ["Mientras su condición sea verdadera", "Una cantidad fija de veces", "Hasta que termina el archivo", "Una sola vez"], "Si la condición nunca se vuelve falsa y no hay break, el ciclo es infinito."),
+  Q(2, `¿Qué devuelve una función que no tiene <code>return</code>?`, ["None", "0", "Un string vacío", "Da error"], "Sin return explícito, la función devuelve None."),
+  Q(2, `¿Qué genera <code>list(range(0, 10, 3))</code>?`, ["[0, 3, 6, 9]", "[0, 3, 6]", "[3, 6, 9]", "[0, 3, 6, 9, 10]"], "El tercer argumento es el paso."),
+  Q(2, `¿Para qué sirve <code>elif</code>?`, ["Evaluar otra condición si las anteriores fueron falsas", "Repetir un bloque", "Salir de la función", "Definir una función"], "elif encadena condiciones alternativas dentro de un if."),
+  Q(2, `¿Cuál es la forma correcta de definir una función con dos parámetros?`, ["def f(a, b):", "function f(a, b)", "def f[a, b]:", "f = def(a, b)"], "Se usa def, paréntesis, parámetros separados por coma y dos puntos."),
+
+  // Unidad 3
+  Q(3, `¿Qué tipo devuelve siempre <code>input()</code>?`, ["str", "int", "float", "Depende de lo que se escriba"], "Hay que convertir con int() o float() si se necesita un número."),
+  Q(3, `¿Qué imprime <code>print(f"{3.14159:.2f}")</code>?`, ["3.14", "3.1", "3.142", "3.14159"], ".2f formatea con 2 decimales."),
+  Q(3, `¿Qué modo de <code>open()</code> escribe un archivo desde cero (sobrescribe)?`, ["\"w\"", "\"r\"", "\"x+\"", "\"s\""], "\"w\" crea o sobrescribe; \"a\" agrega al final; \"r\" solo lee."),
+  Q(3, `¿Qué ventaja tiene <code>with open("a.txt") as f:</code>?`, ["Cierra el archivo automáticamente al terminar el bloque", "Lee el archivo más rápido", "Permite editar sin permisos", "Convierte el archivo a CSV"], "El administrador de contexto garantiza el cierre aunque haya errores."),
+  Q(3, `¿Qué paquete se usa para hacer gráficos científicos?`, ["matplotlib", "pandas", "requests", "tkinter"], "matplotlib.pyplot es la interfaz de graficación más usada."),
+  Q(3, `¿Qué función de matplotlib hace un gráfico de dispersión?`, ["plt.scatter", "plt.bar", "plt.hist", "plt.pie"], "scatter dibuja puntos individuales (x, y)."),
+  Q(3, `¿Qué función de NumPy sirve para leer un archivo de texto/CSV numérico a un array?`, ["np.loadtxt", "np.readfile", "np.openarray", "np.input"], "np.loadtxt (o genfromtxt si hay datos faltantes) devuelve un array."),
+  Q(3, `¿Qué función dibuja isolíneas (curvas de nivel) de una superficie?`, ["plt.contour", "plt.plot", "plt.scatter", "plt.stem"], "contour traza líneas donde la función toma valores constantes."),
+  Q(3, `Para graficar una superficie 3D en matplotlib se usa el método...`, ["plot_surface", "plot_line", "scatter2d", "surface2d"], "Se aplica sobre ejes creados con projection=\"3d\"."),
+
+  // Unidad 4
+  Q(4, `El error absoluto de una aproximación es...`, ["|valor verdadero − valor aproximado|", "Valor aproximado / valor verdadero", "Valor verdadero + valor aproximado", "El cuadrado de la diferencia"], "El error relativo divide ese valor por |valor verdadero|."),
+  Q(4, `El error relativo se calcula como...`, ["Error absoluto / |valor verdadero|", "Error absoluto × valor verdadero", "Valor aproximado − 1", "Error absoluto²"], "Permite comparar errores sin depender de la magnitud del valor."),
+  Q(4, `Los errores de redondeo aparecen porque...`, ["La computadora representa los números con cantidad finita de dígitos", "El algoritmo tiene un bucle infinito", "La función no es continua", "Se usó un método incorrecto"], "Por ejemplo, 0.1 no se puede representar exactamente en binario."),
+  Q(4, `Los errores de truncamiento se deben a...`, ["Reemplazar un procedimiento matemático infinito por uno finito", "El límite de dígitos de la máquina", "Errores de tipeo del programador", "Datos medidos con ruido"], "Ejemplo: cortar una serie de Taylor luego de algunos términos."),
+  Q(4, `El error numérico total es...`, ["La combinación de errores de redondeo y de truncamiento", "Solo el error de redondeo", "Solo el error de truncamiento", "El error de medición"], "Ambos aportan, y suelen comportarse de forma opuesta al variar el paso."),
+  Q(4, `¿Qué da <code>0.1 + 0.2 == 0.3</code> en Python?`, ["False", "True", "None", "Error"], "Por el error de redondeo, 0.1 + 0.2 vale 0.30000000000000004."),
+  Q(4, `Para comparar floats de forma robusta conviene usar...`, ["math.isclose o una tolerancia", "El operador ==", "El operador is", "int() sobre ambos"], "Se compara que la diferencia sea menor que una tolerancia."),
+
+  // Unidad 5
+  Q(5, `En un método iterativo, la tolerancia es...`, ["El error máximo aceptable para detener las iteraciones", "El número máximo de variables", "El valor inicial", "El paso de integración"], "Se detiene cuando el error estimado queda por debajo de la tolerancia."),
+  Q(5, `La iteración de punto fijo resuelve ecuaciones de la forma...`, ["x = g(x)", "f(x) = 0 sin reescribir", "y' = f(x, y)", "A·x = b"], "Se itera x_{n+1} = g(x_n) hasta converger."),
+  Q(5, `Para que converja la iteración de punto fijo, cerca de la raíz debe cumplirse...`, ["|g'(x)| < 1", "|g'(x)| > 1", "g(x) = 0", "g'(x) = 2"], "Si la pendiente de g es menor que 1 en módulo, el error se achica en cada paso."),
+  Q(5, `El método de bisección necesita un intervalo [a, b] donde...`, ["f(a)·f(b) < 0", "f(a) = f(b)", "f'(a) = 0", "a = b"], "El cambio de signo asegura una raíz dentro del intervalo si f es continua."),
+  Q(5, `¿Qué función de NumPy resuelve el sistema <code>A·x = b</code>?`, ["np.linalg.solve(A, b)", "np.solve(A, b)", "np.linalg.sum(A, b)", "np.dot(A, b)"], "solve es más eficiente y preciso que calcular la inversa."),
+  Q(5, `En NumPy, ¿qué operador hace el producto matricial?`, ["@", "*", "//", "%"], "* multiplica elemento a elemento; @ (o np.dot) hace el producto matricial."),
+  Q(5, `Una matriz cuadrada A tiene inversa si...`, ["Su determinante es distinto de cero", "Su determinante es cero", "Es simétrica", "Tiene todos sus elementos positivos"], "Si det(A) = 0 la matriz es singular y no se puede invertir."),
+  Q(5, `¿Qué función de NumPy calcula valores y vectores propios?`, ["np.linalg.eig", "np.linalg.inv", "np.linalg.det", "np.linalg.norm"], "Devuelve los autovalores y la matriz con los autovectores en columnas."),
+
+  // Unidad 6
+  Q(6, `La interpolación busca una función que...`, ["Pase exactamente por todos los puntos dados", "Minimice el error sin pasar por los puntos", "Sea siempre una recta", "Ignore los extremos"], "La regresión, en cambio, ajusta sin pasar necesariamente por los puntos."),
+  Q(6, `La regresión por mínimos cuadrados minimiza...`, ["La suma de los cuadrados de los residuos", "La suma de los residuos", "El número de puntos", "El grado del polinomio"], "Residuo = diferencia entre el dato y el valor que da el modelo."),
+  Q(6, `¿Qué grado tiene como máximo el polinomio interpolante de n+1 puntos?`, ["n", "n+1", "n−1", "2n"], "Por n+1 puntos pasa un único polinomio de grado a lo sumo n."),
+  Q(6, `Los splines cúbicos son...`, ["Polinomios de grado 3 por tramos, unidos suavemente", "Un único polinomio de grado alto", "Rectas entre puntos", "Un método de regresión lineal"], "Evitan las oscilaciones de los polinomios de grado alto."),
+  Q(6, `Para linealizar <code>y = a·e^(bx)</code> se aplica...`, ["Logaritmo natural: ln y = ln a + b·x", "Raíz cuadrada", "Derivada", "Seno a ambos lados"], "Se hace una regresión lineal entre x y ln(y)."),
+  Q(6, `¿Qué hace <code>np.polyfit(x, y, 2)</code>?`, ["Ajusta un polinomio de grado 2 por mínimos cuadrados", "Interpola con splines", "Deriva dos veces", "Grafica una parábola"], "Devuelve los coeficientes del polinomio de grado 2."),
+  Q(6, `¿Qué función de NumPy hace interpolación lineal?`, ["np.interp", "np.polyfit", "np.linalg.solve", "np.fft"], "np.interp(x, xp, fp) interpola linealmente entre los puntos (xp, fp)."),
+  Q(6, `Si los datos tienen mucho ruido de medición, conviene...`, ["Regresión", "Interpolación polinomial de alto grado", "Interpolar pasando por cada punto", "Descartar la mitad de los datos"], "Interpolar exactamente copiaría el ruido."),
+
+  // Unidad 7
+  Q(7, `La diferencia finita hacia adelante aproxima f'(x) como...`, ["(f(x+h) − f(x)) / h", "(f(x) + f(x+h)) / h", "f(x)·h", "(f(x+h) − f(x))·h"], "Es la definición de derivada sin tomar el límite."),
+  Q(7, `La diferencia finita centrada tiene error de orden...`, ["O(h²)", "O(h)", "O(1)", "O(h³) siempre"], "Es más precisa que la diferencia hacia adelante, que es O(h)."),
+  Q(7, `La regla del trapecio aproxima la función en cada subintervalo con...`, ["Una recta", "Una parábola", "Una constante cero", "Un spline cúbico"], "Cada subintervalo se reemplaza por un trapecio."),
+  Q(7, `La regla de Simpson 1/3 usa en cada tramo...`, ["Una parábola (polinomio de grado 2)", "Una recta", "Un polinomio de grado 5", "Una constante"], "Requiere un número par de subintervalos."),
+  Q(7, `¿Qué función de SciPy integra numéricamente con cuadratura adaptativa?`, ["scipy.integrate.quad", "scipy.optimize.root", "scipy.linalg.solve", "scipy.stats.norm"], "quad devuelve el valor de la integral y una estimación del error."),
+  Q(7, `Si en una derivada numérica se achica demasiado h, el resultado puede empeorar por...`, ["Errores de redondeo (cancelación al restar números casi iguales)", "Errores de truncamiento mayores", "Que la función deja de ser continua", "Que el paso se vuelve negativo"], "Al achicar h baja el truncamiento pero sube el redondeo."),
+  Q(7, `Al duplicar la cantidad de subintervalos en la regla del trapecio compuesta, el error...`, ["Disminuye (aproximadamente a la cuarta parte)", "Aumenta", "No cambia", "Se anula siempre"], "El error del trapecio compuesto es O(h²)."),
+
+  // Unidad 8
+  Q(8, `Una ecuación diferencial ordinaria (EDO) involucra derivadas respecto de...`, ["Una sola variable independiente", "Dos o más variables independientes", "Ninguna variable", "Solo el tiempo en forma discreta"], "Si hay varias variables independientes se trata de una EDP."),
+  Q(8, `En un problema de valores iniciales (PVI)...`, ["Las condiciones se dan en el punto inicial", "Las condiciones se dan en los dos extremos", "No hay condiciones", "Solo se conoce la solución final"], "En los problemas de contorno las condiciones están en los bordes."),
+  Q(8, `El método de Euler avanza con la fórmula...`, ["y_{n+1} = y_n + h·f(t_n, y_n)", "y_{n+1} = y_n·h", "y_{n+1} = f(y_n)/h", "y_{n+1} = y_n − h²"], "Usa la pendiente al inicio del paso."),
+  Q(8, `Reducir el orden de una EDO de orden n consiste en...`, ["Escribirla como un sistema de n EDOs de primer orden", "Derivarla n veces", "Integrarla una vez", "Eliminar la variable independiente"], "Se definen variables auxiliares: v = y', etc."),
+  Q(8, `Para <code>y'' = −y</code>, con <code>v = y'</code>, el sistema de primer orden es...`, ["y' = v, v' = −y", "y' = −v, v' = y", "y' = y, v' = v", "y' = v², v' = 0"], "Es la reducción de orden aplicada al oscilador armónico."),
+  Q(8, `El método de Euler tiene error global de orden...`, ["O(h)", "O(h²)", "O(h⁴)", "O(1)"], "Es un método de primer orden: reducir h a la mitad reduce el error a la mitad."),
+  Q(8, `¿Qué función de SciPy resuelve problemas de valores iniciales?`, ["scipy.integrate.solve_ivp", "scipy.integrate.quad", "scipy.interpolate.interp1d", "scipy.linalg.eig"], "solve_ivp(f, t_span, y0) integra EDOs numéricamente."),
+  Q(8, `¿Qué función de SciPy resuelve problemas de contorno?`, ["scipy.integrate.solve_bvp", "scipy.integrate.solve_ivp", "scipy.optimize.minimize", "scipy.signal.lfilter"], "bvp = boundary value problem."),
+
+  // Unidad 9
+  Q(9, `En un modelo matemático, las variables de estado...`, ["Describen el estado del sistema en cada instante", "Son constantes del modelo", "Son los errores numéricos", "Son los datos del archivo"], "Por ejemplo: concentración, temperatura, población."),
+  Q(9, `Un modelo estacionario es aquel que...`, ["No depende del tiempo", "Siempre es una EDP", "Tiene error cero", "Usa datos aleatorios"], "Los modelos inestacionarios (transitorios) sí varían en el tiempo."),
+  Q(9, `Un modelo determinístico...`, ["Con las mismas entradas siempre da los mismos resultados", "Incluye componentes aleatorias", "No tiene parámetros", "Solo sirve para sistemas lineales"], "Los estocásticos incorporan aleatoriedad."),
+  Q(9, `En las etapas del modelado, la calibración consiste en...`, ["Ajustar los parámetros para reproducir datos observados", "Comparar con datos independientes", "Simular escenarios futuros", "Plantear las ecuaciones"], "La validación usa datos distintos de los de calibración."),
+  Q(9, `La validación de un modelo consiste en...`, ["Contrastarlo con datos independientes de los usados para calibrar", "Elegir los parámetros", "Graficar los resultados", "Reducir el paso de integración"], "Verifica que el modelo calibrado también predice bien otros datos."),
+  Q(9, `Un modelo distribuido (a diferencia de uno agregado)...`, ["Considera variaciones espaciales y suele usar EDPs", "Ignora el tiempo", "Tiene un solo parámetro", "Solo usa EDOs de primer orden"], "El agregado trata al sistema como un único punto (EDOs)."),
+  Q(9, `Un modelo de base física se construye a partir de...`, ["Leyes físicas como conservación de masa o energía", "Solo ajustes estadísticos de datos", "Números aleatorios", "Intuición sin ecuaciones"], "Los empíricos, en cambio, se basan en ajustar datos."),
+  Q(9, `En un balance, el término fuente representa...`, ["La generación o consumo dentro del sistema", "El error numérico", "El paso de tiempo", "La condición inicial"], "Es lo que se agrega o se quita del sistema por procesos internos."),
+  Q(9, `El modelo <code>dy/dt = −k·y</code> (k > 0) describe...`, ["Un decaimiento exponencial", "Un crecimiento lineal", "Una oscilación sin amortiguar", "Un estado estacionario siempre"], "Su solución es y(t) = y₀·e^(−k·t).")
+];
+
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+const N = 20, S = canvas.width / N;
+const $ = id => document.getElementById(id);
+
+let snake, dir, nextDir, apple, score, loop, running = false;
+let best = 0, right = 0, total = 0, pool = [];
+
+try { best = +localStorage.getItem("snakeBest") || 0; } catch (e) {}
+$("best").textContent = best;
+
+function reset() {
+  snake = [{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }];
+  dir = nextDir = { x: 1, y: 0 };
+  score = 0;
+  $("score").textContent = 0;
+  placeApple();
+}
+
+function placeApple() {
+  do {
+    apple = { x: Math.floor(Math.random() * N), y: Math.floor(Math.random() * N) };
+  } while (snake.some(s => s.x === apple.x && s.y === apple.y));
+}
+
+function start() {
+  reset();
+  $("overlay").classList.add("hidden");
+  running = true;
+  draw();
+  clearInterval(loop);
+  loop = setInterval(tick, 110);
+}
+
+function tick() {
+  dir = nextDir;
+  const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
+  const hitWall = head.x < 0 || head.y < 0 || head.x >= N || head.y >= N;
+  const hitSelf = snake.some(s => s.x === head.x && s.y === head.y);
+  if (hitWall || hitSelf) return gameOver();
+
+  snake.unshift(head);
+  if (head.x === apple.x && head.y === apple.y) {
+    score++;
+    $("score").textContent = score;
+    placeApple();
+  } else {
+    snake.pop();
+  }
+  draw();
+}
+
+function draw() {
+  ctx.fillStyle = "#1e293b";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.fillStyle = "#ef4444";
+  ctx.beginPath();
+  ctx.arc(apple.x * S + S / 2, apple.y * S + S / 2, S / 2 - 3, 0, Math.PI * 2);
+  ctx.fill();
+
+  snake.forEach((s, i) => {
+    ctx.fillStyle = i === 0 ? "#4ade80" : "#22c55e";
+    ctx.fillRect(s.x * S + 1, s.y * S + 1, S - 2, S - 2);
+  });
+}
+
+function gameOver() {
+  clearInterval(loop);
+  running = false;
+  if (score > best) {
+    best = score;
+    $("best").textContent = best;
+    try { localStorage.setItem("snakeBest", best); } catch (e) {}
+  }
+  showQuestion();
+}
+
+function showQuestion() {
+  if (!pool.length) pool = QUESTIONS.map((_, i) => i).sort(() => Math.random() - 0.5);
+  const item = QUESTIONS[pool.pop()];
+
+  $("title").textContent = "¡Perdiste! 💥";
+  $("title").className = "";
+  $("msg").textContent = "Hiciste " + score + " punto" + (score === 1 ? "" : "s") + ". Contestá para volver a jugar:";
+  $("question").innerHTML = '<small style="color:#facc15;display:block;margin-bottom:4px">' + UNITS[item.u] + "</small>" + item.q;
+  $("explain").textContent = "";
+  $("again").style.display = "none";
+
+  const box = $("options");
+  box.innerHTML = "";
+  const opts = item.o.map((t, i) => ({ t, ok: i === item.a })).sort(() => Math.random() - 0.5);
+  opts.forEach(opt => {
+    const b = document.createElement("button");
+    b.className = "opt";
+    b.style.cssText = "display:block;width:100%;margin-bottom:8px";
+    b.textContent = opt.t;
+    b.onclick = () => answer(b, opt.ok, item, box);
+    box.appendChild(b);
+  });
+  $("overlay").classList.remove("hidden");
+}
+
+function answer(btn, ok, item, box) {
+  total++;
+  if (ok) right++;
+  $("stats").textContent = right + "/" + total;
+
+  [...box.children].forEach((b, i) => {
+    b.disabled = true;
+    b.style.cursor = "default";
+    if (b.textContent === item.o[item.a]) b.classList.add("right");
+  });
+  if (!ok) btn.classList.add("wrong");
+
+  $("title").textContent = ok ? "¡Correcto! 🎉" : "Incorrecto 😅";
+  $("title").className = ok ? "ok" : "";
+  $("msg").textContent = "";
+  $("explain").textContent = item.e;
+  $("again").textContent = "Jugar de nuevo";
+  $("again").style.display = "block";
+  $("again").focus();
+}
+
+$("again").onclick = start;
+
+function setDir(x, y) {
+  if (!running) return;
+  if (x === -dir.x && y === -dir.y) return;
+  nextDir = { x, y };
+}
+
+document.addEventListener("keydown", e => {
+  const k = e.key.toLowerCase();
+  const map = {
+    arrowup: [0, -1], w: [0, -1],
+    arrowdown: [0, 1], s: [0, 1],
+    arrowleft: [-1, 0], a: [-1, 0],
+    arrowright: [1, 0], d: [1, 0]
+  };
+  if (map[k]) {
+    e.preventDefault();
+    setDir(...map[k]);
+  } else if ((k === "enter" || k === " ") && !$("overlay").classList.contains("hidden") && $("again").style.display !== "none") {
+    start();
+  }
+});
+
+let tx, ty;
+canvas.addEventListener("touchstart", e => { tx = e.touches[0].clientX; ty = e.touches[0].clientY; }, { passive: true });
+canvas.addEventListener("touchend", e => {
+  const dx = e.changedTouches[0].clientX - tx;
+  const dy = e.changedTouches[0].clientY - ty;
+  if (Math.max(Math.abs(dx), Math.abs(dy)) < 20) return;
+  if (Math.abs(dx) > Math.abs(dy)) setDir(dx > 0 ? 1 : -1, 0);
+  else setDir(0, dy > 0 ? 1 : -1);
+});
+
+reset();
+draw();
+</script>
 </body>
 </html>
